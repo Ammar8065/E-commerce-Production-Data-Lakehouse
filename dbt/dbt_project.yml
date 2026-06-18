@@ -1,0 +1,27 @@
+name: "olist"
+version: "1.0.0"
+config-version: 2
+
+profile: "olist"
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Layering: staging models are lightweight views over the published Silver
+# tables; marts (dims/facts/business marts) are materialized as tables so the
+# Streamlit dashboard reads them fast.
+models:
+  olist:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: gold

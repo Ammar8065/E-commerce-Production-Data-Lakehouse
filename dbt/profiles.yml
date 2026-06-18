@@ -1,0 +1,15 @@
+# dbt profile for the Olist lakehouse. Kept inside the project so the repo is
+# self-contained; point dbt at it with --profiles-dir dbt (the runner does this).
+#
+# The DuckDB file is shared with the publish step: src/publish writes the
+# `silver` schema, dbt builds `staging` and `gold` schemas in the same database.
+# LAKEHOUSE_DB is set (to an absolute path) by scripts/run_pipeline.py; the
+# default makes manual `dbt build --project-dir dbt` work from the repo root.
+olist:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('LAKEHOUSE_DB', 'warehouse/lakehouse.duckdb') }}"
+      schema: gold
+      threads: 4

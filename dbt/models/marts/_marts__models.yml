@@ -1,0 +1,115 @@
+version: 2
+
+models:
+  # ── dimensions ──────────────────────────────────────────────────────────────
+  - name: dim_customers
+    description: "Customer dimension. Grain = customer_id."
+    columns:
+      - name: customer_id
+        data_tests: [not_null, unique]
+      - name: customer_unique_id
+        description: "Stable identifier for the actual person across orders."
+        data_tests: [not_null]
+      - name: state
+        description: "Two-letter Brazilian state code."
+
+  - name: dim_products
+    description: "Product dimension with English category resolved."
+    columns:
+      - name: product_id
+        data_tests: [not_null, unique]
+      - name: product_category
+        description: "English category name, falling back to PT name then 'unknown'."
+        data_tests: [not_null]
+
+  - name: dim_sellers
+    description: "Seller dimension. Grain = seller_id."
+    columns:
+      - name: seller_id
+        data_tests: [not_null, unique]
+
+  # ── facts ───────────────────────────────────────────────────────────────────
+  - name: fct_orders
+    description: >
+      Order-grain fact with customer, revenue, payment, and delivery metrics.
+      Orphaned orders (no matching customer) are kept and flagged, not dropped.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+      - name: customer_id
+        description: "FK to dim_customers. Orphans are expected -> relationships test warns."
+        data_tests:
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+              config:
+                severity: warn
+      - name: order_revenue
+        description: "Sum of item_revenue (price + freight) over the order."
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      - name: is_orphaned_customer
+        description: "True when the order's customer_id has no dim_customers match."
+      - name: delivered_on_time
+        description: "True if delivered on/before the estimated date; null if undelivered."
+
+  - name: fct_order_items
+    description: "Item-grain money fact, enriched with category and customer state."
+    columns:
+      - name: order_id
+        data_tests: [not_null]
+      - name: item_revenue
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+
+  # ── business marts ──────────────────────────────────────────────────────────
+  - name: mart_monthly_revenue
+    description: "Monthly revenue by product category and customer state."
+    columns:
+      - name: year_month
+        data_tests: [not_null]
+      - name: revenue
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+
+  - name: mart_customer_rfm
+    description: "Per-person RFM scores (1–5 each) and segment label."
+    columns:
+      - name: customer_unique_id
+        data_tests: [not_null, unique]
+      - name: r_score
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+      - name: segment
+        description: "Champions / Loyal / Recent / At Risk / Hibernating / Needs Attention."
+        data_tests: [not_null]
+
+  - name: mart_seller_performance
+    description: "Per-seller volume, revenue, review quality, and delivery metrics."
+    columns:
+      - name: seller_id
+        data_tests: [not_null, unique]
+      - name: on_time_rate
+        description: "Share of delivered orders that met the estimated date (0–1)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1
+              inclusive: true
+
+  - name: mart_delivery_performance
+    description: "On-time rate and avg days-to-deliver by month and state."
+    columns:
+      - name: on_time_rate
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1
+              inclusive: true

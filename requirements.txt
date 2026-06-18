@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Olist Data Lakehouse — dependencies (main .venv)
+#
+# This single environment runs the whole pipeline through Phase 5:
+# ingestion (Bronze), cleaning (Silver), publish, dbt (Gold), and the Streamlit
+# dashboard. Orchestration (Prefect) is installed SEPARATELY — see the note at
+# the bottom for why.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Storage, processing, lakehouse format (Phases 1–2) ───────────────────────
+pandas==2.2.2
+pyarrow==16.1.0
+duckdb==1.0.0
+deltalake==0.18.2          # delta-rs: ACID + time travel, no JVM/Spark needed
+kaggle==1.6.14             # dataset download
+python-dotenv==1.0.1       # config / secrets
+
+# ── Transformations + tests + docs (Phase 3) ─────────────────────────────────
+dbt-duckdb==1.8.1          # pulls dbt-core; build Gold marts on DuckDB
+# dbt_utils (accepted_range tests) is installed via `dbt deps`, not pip.
+
+# ── Dashboard (Phases 4–5) ───────────────────────────────────────────────────
+streamlit==1.36.0
+plotly==5.22.0
+
+# ── Orchestration (Phase 4) — INSTALL IN A SEPARATE ENVIRONMENT ───────────────
+# prefect==2.19.0
+#
+# Prefect and dbt pin INCOMPATIBLE transitive versions of `pydantic`/`griffe`,
+# so they cannot coexist in one virtualenv. This is normal: orchestrators are
+# routinely isolated from the tools they invoke. To run src/orchestration/flow.py:
+#     python -m venv .venv-prefect
+#     .venv-prefect\Scripts\pip install prefect
+#     .venv-prefect\Scripts\python -m src.orchestration.flow
+# The plain scripts/run_pipeline.py needs none of this and runs the full pipeline.

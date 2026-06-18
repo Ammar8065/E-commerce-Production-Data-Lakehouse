@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: "Staged orders, one row per order_id."
+    columns:
+      - name: order_id
+        description: "Primary key — unique order identifier."
+        data_tests: [not_null, unique]
+      - name: customer_id
+        description: "FK to the (order-scoped) customer."
+        data_tests: [not_null]
+      - name: order_status
+        description: "Lifecycle status of the order."
+        data_tests:
+          - accepted_values:
+              values: [delivered, shipped, canceled, unavailable, invoiced,
+                       processing, created, approved]
+      - name: order_purchase_timestamp
+        description: "When the order was placed (the business event time)."
+        data_tests: [not_null]
+
+  - name: stg_customers
+    description: "Staged customers. Grain = customer_id; customer_unique_id = person."
+    columns:
+      - name: customer_id
+        data_tests: [not_null, unique]
+      - name: customer_unique_id
+        data_tests: [not_null]
+
+  - name: stg_order_items
+    description: "Staged order items. Grain = (order_id, order_item_id)."
+    columns:
+      - name: order_id
+        data_tests: [not_null]
+      - name: price
+        description: "Item price; basis (with freight) of item_revenue."
+        data_tests: [not_null]
+      - name: item_revenue
+        description: "price + freight_value."
+
+  - name: stg_order_payments
+    description: "Staged payments. Grain = (order_id, payment_sequential)."
+    columns:
+      - name: order_id
+        data_tests: [not_null]
+      - name: payment_value
+        data_tests: [not_null]
+
+  - name: stg_order_reviews
+    description: "Staged reviews. Grain = (review_id, order_id)."
+    columns:
+      - name: review_score
+        description: "1–5 star rating."
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+
+  - name: stg_products
+    description: "Staged product catalog (typo columns renamed to *_length)."
+    columns:
+      - name: product_id
+        data_tests: [not_null, unique]
+
+  - name: stg_sellers
+    description: "Staged seller catalog."
+    columns:
+      - name: seller_id
+        data_tests: [not_null, unique]
+
+  - name: stg_category_translation
+    description: "Portuguese -> English product category names."
+    columns:
+      - name: product_category_name
+        data_tests: [not_null, unique]

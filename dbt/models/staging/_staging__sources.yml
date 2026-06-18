@@ -1,0 +1,29 @@
+version: 2
+
+sources:
+  - name: silver
+    description: >
+      Cleaned, typed, deduplicated tables produced by the Phase 2 Silver layer
+      and materialized into the DuckDB lakehouse by the publish step. These are
+      the trusted inputs to the Gold layer — contract enforcement already happened
+      upstream, so staging stays lightweight.
+    schema: silver
+    tables:
+      - name: orders
+        description: One row per order. Grain = order_id.
+      - name: customers
+        description: One row per order-scoped customer_id; customer_unique_id is the person.
+      - name: order_items
+        description: One row per item within an order. Grain = (order_id, order_item_id).
+      - name: order_payments
+        description: Payment records. Grain = (order_id, payment_sequential).
+      - name: order_reviews
+        description: Customer reviews. Grain = (review_id, order_id).
+      - name: products
+        description: Product catalog (typo columns already renamed to *_length).
+      - name: sellers
+        description: Seller catalog.
+      - name: geolocation
+        description: Zip-prefix lat/lng reference data.
+      - name: category_translation
+        description: Portuguese -> English product category names.

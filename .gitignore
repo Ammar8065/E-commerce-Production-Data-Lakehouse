@@ -1,0 +1,37 @@
+# ── Python ───────────────────────────────────────────────────────────────────
+.venv/
+.venv-prefect/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ── Secrets / local config ───────────────────────────────────────────────────
+.env
+kaggle.json
+
+# ── Private / personal docs (not for public repo) ────────────────────────────
+docs/DESIGN_DECISIONS.md
+
+# ── Data & warehouse artifacts (regenerable; never commit) ───────────────────
+data/raw/
+data/bronze/
+data/silver/
+data/_rejected/
+warehouse/
+
+# Keep the empty data layout in git so the structure is documented.
+!data/
+!data/.gitkeep
+
+# ── dbt artifacts (regenerable) ──────────────────────────────────────────────
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml          # local per-user anonymous-usage id, not for the repo
+# package-lock.yml IS committed (pins dbt_utils) — do not ignore it.
+
+# ── OS noise ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

@@ -1,14 +1,26 @@
-# Olist E-Commerce Data Lakehouse
+# 📦 Olist E-Commerce Data Lakehouse
 
-A production-thinking data lakehouse built on the [Olist Brazilian e-commerce
-dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) — real,
-messy, multi-table data. The stack runs entirely on a laptop but is architected
-the way a cloud pipeline would be, so the *thinking* transfers even though the
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Delta Lake](https://img.shields.io/badge/Delta_Lake-0.18-003366)
+![DuckDB](https://img.shields.io/badge/DuckDB-1.0-FFF000?logo=duckdb&logoColor=black)
+![dbt](https://img.shields.io/badge/dbt-1.10-FF694B?logo=dbt&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.36-FF4B4B?logo=streamlit&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
+
+A production-thinking **Bronze → Silver → Gold data lakehouse** built on the real
+[Olist Brazilian e-commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
+— ~100K orders of messy, multi-table data. It runs entirely on a laptop but is
+architected like a cloud pipeline, so the *engineering* transfers even though the
 infrastructure doesn't.
 
 > **Why this project exists:** most portfolio data projects load a clean CSV and
-> draw a chart. This one is built around the assumption that **data is wrong,
-> late, and duplicated** — and shows the engineering you do about that.
+> draw a chart. This one assumes **data is wrong, late, and duplicated** — and
+> shows the engineering you do about it: bad rows quarantined with reasons,
+> idempotent re-runs, tested transformations, and a pipeline that watches its
+> own health.
+
+**Status:** all five phases implemented and verified end-to-end on the full
+dataset — ingestion, cleaning, dbt Gold marts, observability, and a dashboard.
 
 ---
 
@@ -44,7 +56,7 @@ job and trusts the layer below it less than you'd think.
                                              │  dims + facts + 4 marts:      │
                                              │  monthly revenue · RFM ·      │
                                              │  seller perf · delivery perf  │
-                                             │  + 43 tests, generated docs   │
+                                             │  + 44 tests, generated docs   │
                                              └───────────────┬──────────────┘
                                                              │ app/streamlit_app.py
                                                              ▼
@@ -70,6 +82,35 @@ job and trusts the layer below it less than you'd think.
 | Orchestration    | **Prefect** *(isolated env)* | Pythonic flows with retries/UI. Runs in its own venv — see note below. |
 | Observability    | Custom DuckDB tables     | Built and owned here — `pipeline_runs`, `column_metrics`. |
 | Dashboard        | **Streamlit** + Plotly   | Python-native; business view + pipeline-health view. |
+
+---
+
+## Results (full Olist dataset)
+
+Run end-to-end on the real ~100K-order dataset (Bronze → Silver → publish → dbt),
+every number below is produced by the pipeline and verified by its tests.
+
+| Metric | Value |
+|--------|-------|
+| Orders processed | **99,441** |
+| Revenue | **R$ 15.7M** |
+| Avg. days to deliver | **12.5** |
+| On-time delivery rate | **91.9%** |
+| Geolocation rows ingested | **1,000,163** |
+| Rows quarantined (real data) | **8** — delivered orders with no delivery date, caught by the semantic business-rule layer |
+| dbt models / tests | **17 models / 44 tests**, all passing |
+
+The headline numbers match published Olist analyses (≈R$15.9M GMV, ≈12 days,
+≈92% on-time), which is the cross-check that the joins and aggregations are correct.
+
+## Dashboard
+
+Two views, two audiences — a **Business** view over the Gold marts and a
+**Pipeline Health** view over the operational metadata store.
+
+| Pipeline Health | Business Overview |
+|-----------------|-------------------|
+| ![Pipeline Health](assets/pipeline_health.png) | ![Business Overview](assets/business_overview.png) |
 
 ---
 

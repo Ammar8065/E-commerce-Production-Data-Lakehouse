@@ -53,10 +53,10 @@ job and trusts the layer below it less than you'd think.
                                                              ▼
                                              ┌──────────────────────────────┐
                                              │  GOLD  (dbt models in DuckDB) │
-                                             │  dims + facts + 4 marts:      │
+                                             │  dims + facts + 6 marts:      │
                                              │  monthly revenue · RFM ·      │
                                              │  seller perf · delivery perf  │
-                                             │  + 44 tests, generated docs   │
+                                             │  + 51 tests, generated docs   │
                                              └───────────────┬──────────────┘
                                                              │ app/streamlit_app.py
                                                              ▼
@@ -94,14 +94,21 @@ every number below is produced by the pipeline and verified by its tests.
 |--------|-------|
 | Orders processed | **99,441** |
 | Revenue | **R$ 15.7M** |
+| Avg. order value | **R$ 160** |
 | Avg. days to deliver | **12.5** |
 | On-time delivery rate | **91.9%** |
+| Unique customers | **94,982** (3% repeat-purchase rate) |
 | Geolocation rows ingested | **1,000,163** |
 | Rows quarantined (real data) | **8** — delivered orders with no delivery date, caught by the semantic business-rule layer |
-| dbt models / tests | **17 models / 44 tests**, all passing |
+| dbt models / tests | **19 models / 51 tests**, all passing |
 
 The headline numbers match published Olist analyses (≈R$15.9M GMV, ≈12 days,
 ≈92% on-time), which is the cross-check that the joins and aggregations are correct.
+
+**A few findings the dashboard surfaces:** credit cards drive **78%** of payment
+value (boleto 18%); reviews skew positive (**58% are 5-star**, avg **4.09/5**);
+and the customer base is overwhelmingly **one-time buyers** (3% repeat) — a
+retention story hiding under healthy top-line revenue.
 
 ## Dashboard
 

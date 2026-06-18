@@ -96,6 +96,25 @@ def render_pipeline_health() -> None:
     )
     st.dataframe(latest, use_container_width=True, hide_index=True)
 
+    # how much data each table holds (latest Silver run) — scale at a glance
+    st.subheader("Data volume by table (Silver, latest run)")
+    vol = query(
+        META,
+        """
+        SELECT table_name, rows_out AS row_count FROM (
+            SELECT *, row_number() OVER
+                (PARTITION BY table_name ORDER BY started_at DESC) rn
+            FROM pipeline_runs WHERE pipeline='silver'
+        ) WHERE rn = 1 AND rows_out IS NOT NULL ORDER BY row_count DESC
+        """,
+    )
+    if not vol.empty:
+        st.plotly_chart(
+            px.bar(vol, x="row_count", y="table_name", orientation="h", text="row_count",
+                   labels={"row_count": "rows", "table_name": ""}),
+            use_container_width=True,
+        )
+
     col_a, col_b = st.columns(2)
 
     # rejection rate by table (silver)
@@ -187,17 +206,21 @@ def render_business() -> None:
             (SELECT sum(order_revenue) FROM gold.fct_orders
              WHERE order_status NOT IN ('canceled','unavailable'))            AS revenue,
             (SELECT count(*) FROM gold.fct_orders)                            AS n_orders,
+            (SELECT avg(order_revenue) FROM gold.fct_orders
+             WHERE order_status NOT IN ('canceled','unavailable')
+               AND order_revenue > 0)                                         AS aov,
             (SELECT round(avg(days_to_deliver), 1) FROM gold.fct_orders
              WHERE days_to_deliver IS NOT NULL)                               AS avg_days,
             (SELECT round(100.0 * avg(case when delivered_on_time then 1.0 else 0.0 end), 1)
              FROM gold.fct_orders WHERE delivered_on_time IS NOT NULL)        AS on_time_pct
         """,
     ).iloc[0]
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Revenue (R$)", f"{(kpis['revenue'] or 0):,.0f}")
     c2.metric("Orders", f"{int(kpis['n_orders'] or 0):,}")
-    c3.metric("Avg days to deliver", f"{kpis['avg_days'] or 0:.1f}")
-    c4.metric("On-time delivery", f"{kpis['on_time_pct'] or 0:.1f}%")
+    c3.metric("Avg order value", f"R$ {(kpis['aov'] or 0):,.0f}")
+    c4.metric("Avg days to deliver", f"{kpis['avg_days'] or 0:.1f}")
+    c5.metric("On-time delivery", f"{kpis['on_time_pct'] or 0:.1f}%")
 
     # revenue over time
     st.subheader("Monthly revenue")
@@ -241,29 +264,100 @@ def render_business() -> None:
                 use_container_width=True,
             )
 
+    # how customers order and pay
     col_c, col_d = st.columns(2)
     with col_c:
+        st.subheader("Order status mix")
+        status = query(
+            LAKE,
+            "SELECT order_status, count(*) AS n_orders FROM gold.fct_orders "
+            "GROUP BY 1 ORDER BY n_orders DESC",
+        )
+        if not status.empty:
+            st.plotly_chart(
+                px.bar(status, x="order_status", y="n_orders",
+                       labels={"order_status": "", "n_orders": "orders"}),
+                use_container_width=True,
+            )
+    with col_d:
+        st.subheader("Payment methods (by value)")
+        pay = query(
+            LAKE,
+            "SELECT payment_type, total_value, pct_value, avg_installments "
+            "FROM gold.mart_payment_methods ORDER BY total_value DESC",
+        )
+        if not pay.empty:
+            st.plotly_chart(
+                px.bar(pay, x="total_value", y="payment_type", orientation="h",
+                       text="pct_value",
+                       labels={"total_value": "Value (R$)", "payment_type": ""}),
+                use_container_width=True,
+            )
+
+    # satisfaction & customer value
+    col_e, col_f = st.columns(2)
+    with col_e:
+        st.subheader("Review score distribution")
+        revs = query(
+            LAKE,
+            "SELECT review_score, n_reviews, pct FROM gold.mart_review_summary "
+            "ORDER BY review_score",
+        )
+        avg_rev = query(
+            LAKE,
+            "SELECT round(sum(review_score*n_reviews)*1.0/nullif(sum(n_reviews),0),2) "
+            "AS avg_score FROM gold.mart_review_summary",
+        )
+        if not revs.empty:
+            avg = avg_rev["avg_score"].iloc[0] if not avg_rev.empty else None
+            st.caption(f"Average score: **{avg} / 5**")
+            st.plotly_chart(
+                px.bar(revs, x="review_score", y="n_reviews", text="pct",
+                       labels={"review_score": "stars", "n_reviews": "reviews"}),
+                use_container_width=True,
+            )
+    with col_f:
         st.subheader("Customer segments (RFM)")
         seg = query(
             LAKE,
-            "SELECT segment, count(*) AS customers, round(sum(monetary),2) AS monetary "
-            "FROM gold.mart_customer_rfm GROUP BY 1 ORDER BY customers DESC",
+            "SELECT segment, count(*) AS customers FROM gold.mart_customer_rfm "
+            "GROUP BY 1 ORDER BY customers DESC",
         )
         if not seg.empty:
             st.plotly_chart(
                 px.pie(seg, names="segment", values="customers", hole=0.4),
                 use_container_width=True,
             )
-    with col_d:
-        st.subheader("Top sellers by revenue")
-        sellers = query(
-            LAKE,
-            "SELECT seller_id, seller_state, total_revenue, n_orders, "
-            "round(on_time_rate,2) AS on_time_rate, round(avg_review_score,2) AS review "
-            "FROM gold.mart_seller_performance WHERE total_revenue IS NOT NULL "
-            "ORDER BY total_revenue DESC LIMIT 10",
-        )
-        st.dataframe(sellers, use_container_width=True, hide_index=True)
+
+    # customer base & catalog snapshot
+    st.subheader("Customer base & catalog")
+    base = query(
+        LAKE,
+        """
+        SELECT
+            (SELECT count(*) FROM gold.mart_customer_rfm)                         AS customers,
+            (SELECT round(100.0 * avg(case when frequency > 1 then 1.0 else 0.0 end), 1)
+             FROM gold.mart_customer_rfm)                                        AS repeat_pct,
+            (SELECT count(*) FROM gold.dim_sellers)                              AS sellers,
+            (SELECT count(*) FROM gold.dim_products)                            AS products
+        """,
+    ).iloc[0]
+    b1, b2, b3, b4 = st.columns(4)
+    b1.metric("Unique customers", f"{int(base['customers'] or 0):,}")
+    b2.metric("Repeat-purchase rate", f"{base['repeat_pct'] or 0:.1f}%")
+    b3.metric("Active sellers", f"{int(base['sellers'] or 0):,}")
+    b4.metric("Products in catalog", f"{int(base['products'] or 0):,}")
+
+    # top sellers
+    st.subheader("Top sellers by revenue")
+    sellers = query(
+        LAKE,
+        "SELECT seller_id, seller_state, total_revenue, n_orders, "
+        "round(on_time_rate,2) AS on_time_rate, round(avg_review_score,2) AS review "
+        "FROM gold.mart_seller_performance WHERE total_revenue IS NOT NULL "
+        "ORDER BY total_revenue DESC LIMIT 10",
+    )
+    st.dataframe(sellers, use_container_width=True, hide_index=True)
 
     # delivery performance
     st.subheader("Delivery performance over time")

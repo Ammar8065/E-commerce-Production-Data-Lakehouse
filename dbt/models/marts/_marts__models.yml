@@ -113,3 +113,31 @@ models:
               min_value: 0
               max_value: 1
               inclusive: true
+
+  - name: mart_payment_methods
+    description: "Payment-method mix: orders, value, installments, and value share."
+    columns:
+      - name: payment_type
+        data_tests: [not_null, unique]
+      - name: pct_value
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+              inclusive: true
+
+  - name: mart_review_summary
+    description: "Review-score (1–5) distribution with each score's share."
+    columns:
+      - name: review_score
+        data_tests:
+          - not_null
+          - unique
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+      - name: pct
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+              inclusive: true

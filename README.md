@@ -26,6 +26,8 @@ dataset — ingestion, cleaning, dbt Gold marts, observability, and a dashboard.
 
 ## Architecture
 
+![Architecture Diagram](assets/architecture_diagram.png)
+
 A classic **medallion (Bronze → Silver → Gold)** lakehouse. Each layer has one
 job and trusts the layer below it less than you'd think.
 
